@@ -59,21 +59,23 @@ prepare_creds() {
     chmod 600 "$OVH_CRED_DST" || true
   fi
 
-  # Try to fill/override from environment if file contains placeholders or is missing keys (only the 3 required keys)
+  # Try to fill/override from environment if file contains placeholders or is missing keys
+  [ -n "${DNS_OVH_ENDPOINT:-}" ] && kv_set dns_ovh_endpoint "$DNS_OVH_ENDPOINT"
+  # Provide default endpoint if still absent
+  EP=$(kv_get dns_ovh_endpoint)
+  if val_is_placeholder "$EP" || [ -z "$EP" ]; then kv_set dns_ovh_endpoint "ovh-eu"; fi
+
   AK=$(kv_get dns_ovh_application_key)
   if val_is_placeholder "$AK" && [ -n "${DNS_OVH_APPLICATION_KEY:-}" ]; then kv_set dns_ovh_application_key "$DNS_OVH_APPLICATION_KEY"; fi
   AS=$(kv_get dns_ovh_application_secret)
   if val_is_placeholder "$AS" && [ -n "${DNS_OVH_APPLICATION_SECRET:-}" ]; then kv_set dns_ovh_application_secret "$DNS_OVH_APPLICATION_SECRET"; fi
   CK=$(kv_get dns_ovh_consumer_key)
   if val_is_placeholder "$CK" && [ -n "${DNS_OVH_CONSUMER_KEY:-}" ]; then kv_set dns_ovh_consumer_key "$DNS_OVH_CONSUMER_KEY"; fi
-  # Ensure OVH endpoint is configured in credentials file; default ovh-eu. Env DNS_OVH_ENDPOINT overrides file value.
-  EP="${DNS_OVH_ENDPOINT:-ovh-eu}"
-  if [ -n "$EP" ]; then kv_set endpoint "$EP"; fi
 }
 
 # Validate OVH credentials content (keys non-empty, not placeholders)
 validate_creds() {
-  REQUIRED_KEYS="dns_ovh_application_key dns_ovh_application_secret dns_ovh_consumer_key"
+  REQUIRED_KEYS="dns_ovh_endpoint dns_ovh_application_key dns_ovh_application_secret dns_ovh_consumer_key"
   for k in $REQUIRED_KEYS; do
     LINE=$(grep -E "^$k\s*=\s*" "$OVH_CRED_DST" 2>/dev/null | head -n1)
     VALUE=$(echo "$LINE" | cut -d= -f2- | tr -d '\r' | sed -e 's/^\s*//;s/\s*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/")

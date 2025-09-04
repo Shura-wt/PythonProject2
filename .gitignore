@@ -1,4 +1,6 @@
 # Ignore OVH API credentials (do not commit real secrets)
+secrets/ovh.ini
+edge/ovh.ini
 .idea
 
 # Local env (not committed)

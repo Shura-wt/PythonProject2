@@ -35,12 +35,14 @@ jobs:
             git fetch --all --prune
             git reset --hard origin/master
 
-            # Ensure the OVH secrets file exists on server (no CI creation)
-            if [ ! -s secrets/ovh.ini ]; then
-              echo "[ci] ERROR: secrets/ovh.ini is missing. Create it on the server at $(pwd)/secrets/ovh.ini with your OVH DNS credentials."
-              echo "[ci] See secrets/ovh.example.ini for the format. The workflow no longer generates this file."
-              exit 1
-            fi
+            # Ensure the OVH secrets file exists (generate from GitHub Secrets each deploy)
+            mkdir -p secrets
+            cat > secrets/ovh.ini <<'EOF'
+            dns_ovh_endpoint = ovh-eu
+            dns_ovh_application_key = ${{ secrets.DNS_OVH_APPLICATION_KEY }}
+            dns_ovh_application_secret = ${{ secrets.DNS_OVH_APPLICATION_SECRET }}
+            dns_ovh_consumer_key = ${{ secrets.DNS_OVH_CONSUMER_KEY }}
+            EOF
             chmod 600 secrets/ovh.ini || true
 
             # Ensure deploy script is executable
