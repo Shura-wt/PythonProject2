@@ -1,0 +1,3 @@
+# Ignore OVH API credentials (do not commit real secrets)
+secrets/ovh.ini
+.idea

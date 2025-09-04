@@ -1,0 +1,10 @@
+[Unit]
+Description=MQTT to BAES API data transfer service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/mqtt_to_baesapi.py
+Type=simple
+
+[Install]
+WantedBy=multi-user.target

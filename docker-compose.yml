@@ -1,0 +1,79 @@
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2017-latest
+    container_name: mssql-test
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=StrongP@ssw0rd!
+      - MSSQL_PID=Developer
+    # PAS de mapping de port, DB interne uniquement
+    volumes:
+      - mssql-data:/var/opt/mssql
+      - ./init-db.sql:/init-db.sql
+      - ./mssql-entrypoint.sh:/mssql-entrypoint.sh
+    entrypoint: ["/bin/bash", "/mssql-entrypoint.sh"]
+    healthcheck:
+      test: >
+        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "StrongP@ssw0rd!" -Q "SELECT 1" &&
+        /opt/mssql-tools/bin/sqlcmd -S localhost -U Externe -P "Secur3P@ssw0rd!" -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: api-test
+    environment:
+      - DB_USER=Externe
+      - DB_PASSWORD=Secur3P@ssw0rd!
+      - DB_HOST=mssql
+      - DB_NAME=master
+      - DB_PORT=1433
+    depends_on:
+      mssql:
+        condition: service_healthy
+    expose:
+      - "8000"             # uWSGI écoute ici (TCP)
+    restart: unless-stopped
+
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    container_name: front-test
+    expose:
+      - "80"
+    restart: unless-stopped
+
+  edge:
+    build:
+      context: ./edge
+      dockerfile: Dockerfile
+    container_name: edge-test
+    environment:
+      - FRONT_DOMAIN=frontbaes.0shura.fr
+      - API_DOMAIN=apibaes.0shura.fr
+      # Set your ACME contact email; defaults to postmaster@<API_DOMAIN> if not set
+      - ACME_EMAIL=dev@0shura.fr
+      # Set to false (or remove) to use Let's Encrypt production
+      - ACME_STAGING=false
+    ports:
+      - "443:443"
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - ./secrets/ovh.ini:/run/secrets/ovh.ini:ro
+    depends_on:
+      - api
+      - front
+    restart: unless-stopped
+
+volumes:
+  mssql-data:
+    driver: local
+  letsencrypt:
+    driver: local

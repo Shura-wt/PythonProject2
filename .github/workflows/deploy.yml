@@ -1,0 +1,62 @@
+name: Deploy Docker stack to server
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+  COMPOSE_PROJECT_NAME: ${{ secrets.COMPOSE_PROJECT_NAME }}
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set defaults for REMOTE_PATH and COMPOSE_PROJECT_NAME
+        run: |
+          if [ -z "${REMOTE_PATH}" ]; then
+            if [ "${SSH_USER}" = "root" ]; then
+              echo "REMOTE_PATH=/root/baes_docker_shura" >> $GITHUB_ENV
+            else
+              echo "REMOTE_PATH=/home/${SSH_USER}/baes_docker_shura" >> $GITHUB_ENV
+            fi
+          fi
+          if [ -z "${COMPOSE_PROJECT_NAME}" ]; then
+            echo "COMPOSE_PROJECT_NAME=baes" >> $GITHUB_ENV
+          fi
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+          COMPOSE_PROJECT_NAME: ${{ secrets.COMPOSE_PROJECT_NAME }}
+
+      - name: Prepare SSH key
+        id: ssh
+        run: |
+          mkdir -p ~/.ssh
+          echo "${SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          printf "Host ${SSH_HOST}\n  HostName ${SSH_HOST}\n  User ${SSH_USER}\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n" > ~/.ssh/config
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+
+      - name: Create remote directory
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "mkdir -p ${REMOTE_PATH}"
+
+      - name: Copy repository to server (excluding .git)
+        run: |
+          rsync -az --delete --exclude '.git' ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${REMOTE_PATH}/
+
+      - name: Run remote deploy script
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${REMOTE_PATH} && chmod +x scripts/deploy.sh || true && export COMPOSE_PROJECT_NAME='${COMPOSE_PROJECT_NAME}' && scripts/deploy.sh"
