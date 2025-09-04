@@ -272,3 +272,64 @@ Important:
 - N'ajoutez jamais de secrets sous `edge/`. Le fichier `edge/ovh.ini` est ignoré par Git et ne doit contenir aucune donnée sensible.
 - Pour un usage local, partez de `secrets/ovh.example.ini` et créez un `secrets/ovh.ini` non commité. En CI/CD, le fichier `secrets/ovh.ini` est généré automatiquement à chaque déploiement depuis les Secrets GitHub.
 - Si des clés OVH ont été commitées par le passé, révoquez/regénérez-les dans votre compte OVH.
+
+
+---
+
+## Ports à ouvrir (serveur / pare-feu)
+
+- Entrant (exposé à Internet):
+  - 443/TCP → vers le service `edge` (Nginx + TLS). Requis pour front et API en HTTPS.
+  - 80/TCP → optionnel pour redirection HTTP→HTTPS (facultatif dans ce projet car l’émission ACME se fait en DNS-01 via OVH). À ouvrir si vous voulez supporter http:// en plus de https://.
+  - 22/TCP → SSH (uniquement si vous déployez via GitHub Actions/administration distante). Restreindre aux IP nécessaires.
+- Sortant (depuis le serveur vers Internet):
+  - 443/TCP → vers Let’s Encrypt et l’API OVH (certbot dns-ovh). Doit être autorisé.
+- Non exposés publiquement (ne pas ouvrir en entrée):
+  - 1433/TCP (SQL Server) → interne Docker uniquement (service `mssql`).
+  - 8000/TCP (API uWSGI) → interne Docker uniquement (service `api`).
+  - 80/TCP (front) → interne Docker uniquement (service `front`).
+
+Remarque: Le fichier `docker-compose.yml` ne publie que le port 443 (edge). Les autres services communiquent via le réseau interne Docker. N’exposez pas 1433 vers Internet.
+
+## Vérifications indispensables (avant mise en prod)
+
+Réseau / DNS / TLS
+- DNS: créez des enregistrements A (et AAAA si IPv6) pointant vers l’IP publique du serveur pour:
+  - `frontbaes.isymap.com` (FRONT_DOMAIN)
+  - `apibaes.isymap.com` (API_DOMAIN)
+- Pare-feu / NSG du serveur: ouvrez 443/TCP (et 80/TCP si choisi) en entrée, 22/TCP si SSH nécessaire.
+- Sortant: autorisez 443/TCP vers Internet pour Let’s Encrypt et OVH.
+- Secrets OVH: `secrets/ovh.ini` présent côté serveur (créé automatiquement par le workflow) et non vide. L’entrypoint du conteneur edge vérifie les clés.
+- Première émission de certificats: vous pouvez initialement mettre `ACME_STAGING=true` pour tester, puis passer à production.
+
+Docker / Déploiement
+- DEPLOY_WORKDIR: doit pointer vers `/home/userssh/PythonProject2` (ou le chemin exact du dépôt cloné sur le serveur).
+- L’utilisateur SSH (`userssh`) doit pouvoir exécuter Docker sans sudo (groupe docker) ou via sudo si adapté.
+- Espace disque suffisant pour les images et le volume `mssql-data`.
+- L’heure du système correcte (NTP) pour TLS/ACME.
+
+SQL Server (Linux, conteneur)
+- CPU avec support AVX requis par SQL Server 2017+: vérifiez sur l’hôte: `lscpu | grep -i avx`. Sans AVX, SQL Server plantera au démarrage.
+- RAM disponible: au moins 2 Go recommandés pour démarrer SQL Server de manière fiable. Évitez les limites mémoire trop strictes sur le daemon Docker.
+- Mot de passe SA fort: variable `SA_PASSWORD` conforme aux exigences (déjà le cas dans `docker-compose.yml`).
+- Volume: le volume nommé `mssql-data` est monté sur `/var/opt/mssql`. En cas de corruption résiduelle, un `compose down -v` (déjà fait par `scripts/deploy.sh`) recrée un volume propre.
+- Santé: un healthcheck interroge `localhost:1433` via `sqlcmd`. Les services `api` et `edge` attendent que `mssql` soit healthy avant de démarrer.
+
+## Dépannage: « SQL Server ne démarre pas »
+
+Si vous voyez des logs du type « Waiting for SQL Server to start... » puis un crash (SIGABRT) qui boucle:
+- Vérifiez le support AVX sur le CPU de l’hôte. Si absent, migrez vers une VM/serveur avec CPU AVX.
+- Vérifiez la RAM disponible (>= 2 Go libres) et l’espace disque.
+- Nettoyez proprement et redéployez: relancez le workflow ou sur le serveur exécutez `bash scripts/deploy.sh` (il fait `down -v`, prune et suppression des conteneurs nommés qui pourraient créer des conflits).
+- Inspectez les logs mssql: `docker logs mssql-test` et `docker exec -it mssql-test bash -lc 'ls -l /var/opt/mssql/log'`.
+- Si besoin de diagnostic, exposez temporairement 1433 en local (port-forward ou mapping réservé à votre IP) pour se connecter avec un client SQL — ne laissez pas ce port ouvert publiquement.
+
+## Points de contrôle rapides (checklist)
+
+- [ ] DNS des domaines FRONT_DOMAIN/API_DOMAIN pointent vers le serveur
+- [ ] secrets/ovh.ini auto-généré par le workflow (ou présent localement) et valide
+- [ ] 443/TCP ouvert en entrée, 80/TCP optionnel, 22/TCP si SSH
+- [ ] Sortant 443/TCP autorisé
+- [ ] L’utilisateur SSH est dans le groupe docker, DEPLOY_WORKDIR correct
+- [ ] CPU AVX présent, RAM >= 2 Go, disque OK
+- [ ] Déploiement via workflow OK, edge obtient les certificats, `docker ps` montre les 4 services Up
