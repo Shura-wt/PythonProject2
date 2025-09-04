@@ -28,6 +28,38 @@ compose() {
   fi
 }
 
+preflight() {
+  echo "[deploy] Preflight checks (RAM/Swap/CPU AVX)"
+  # Memory check
+  if command -v free >/dev/null 2>&1; then
+    MEM_TOTAL_MB=$(free -m | awk '/Mem:/ {print $2}')
+    SWAP_TOTAL_MB=$(free -m | awk '/Swap:/ {print $2}')
+    echo "[deploy] Host memory: ${MEM_TOTAL_MB} MiB RAM, ${SWAP_TOTAL_MB} MiB swap"
+    if [ "${MEM_TOTAL_MB}" -lt 1900 ] && [ "${SWAP_TOTAL_MB}" -lt 1024 ]; then
+      cat >&2 <<'EOF'
+[deploy][WARN] Low memory detected and no/low swap.
+- SQL Server (Linux) typically requires >= 2 GiB RAM or sufficient swap. With <2 GiB RAM and 0 swap, the mssql container may crash (SIGABRT) during startup.
+- This explains why it works locally (more RAM/swap) but fails on the server.
+Suggested fix (Ubuntu/Debian as root):
+  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+Then re-run the deploy.
+EOF
+    fi
+  fi
+  # CPU AVX check (best-effort)
+  if command -v lscpu >/dev/null 2>&1; then
+    if ! lscpu | grep -iq avx; then
+      echo "[deploy][WARN] CPU AVX not detected. SQL Server requires AVX-capable CPU and may fail to start." >&2
+    fi
+  fi
+}
+
+preflight
+
 # Stop and remove current stack, including volumes defined by this compose file
 echo "[deploy] Bringing down current stack (including volumes and orphans)"
 compose down --remove-orphans -v || true

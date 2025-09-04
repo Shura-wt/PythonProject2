@@ -73,3 +73,41 @@ Notes importantes:
 - Afin de ne pas bloquer l’émission des certificats Let’s Encrypt en cas de panne de la base de données (ex: manque de RAM pour SQL Server), le service `edge` ne dépend plus du service `api` dans `docker-compose.yml`.
 - `edge` peut ainsi démarrer et servir le front ainsi que gérer l’ACME (DNS-01 via OVH) même si `api`/`mssql` sont momentanément indisponibles.
 - Les proxypass vers l’API répondront en erreur tant que l’API n’est pas démarrée, mais la couche TLS (certificats valides) sera opérationnelle, ce qui est requis par la CI.
+
+
+---
+
+## Pourquoi MSSQL marche en local mais pas en CI/serveur ?
+
+Sur votre serveur, la VM dispose d’environ 2 Gio de RAM et 0 swap. SQL Server (Linux, image mcr.microsoft.com/mssql/server:2017-latest) a besoin d’au moins ~2 Gio de RAM et/ou d’un swap suffisant pour démarrer correctement. Sans cela, le processus `sqlservr` peut avorter (SIGABRT) au démarrage, ce que vous observez dans les logs CI. En local, votre machine a plus de mémoire/swap, donc le conteneur devient healthy.
+
+Signes typiques dans les logs:
+- "Waiting for SQL Server to start..." qui boucle
+- Crash avec SIGABRT et génération d’un core dump sous /var/opt/mssql/log
+
+Pré-requis côté hôte pour MSSQL:
+- CPU avec AVX: `lscpu | grep -i avx` doit renvoyer AVX/AVX2.
+- RAM disponible ≥ 2 Gio (plus confortable si possible).
+- Swap activé (recommandé si RAM faible) pour amortir le pic mémoire au démarrage.
+
+### Créer un fichier de swap (Ubuntu/Debian)
+Exécuter en root sur le serveur:
+
+```
+# Créer 2 Gio de swap (méthode rapide si fallocate dispo)
+fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+
+# Rendre persistant au redémarrage
+printf '/swapfile none swap sw 0 0\n' | tee -a /etc/fstab
+
+# Vérifications
+free -h
+swapon --show
+```
+
+Après ajout du swap (ou augmentation de la RAM), relancez le déploiement. Le service `mssql` devrait passer healthy, puis `api` démarrera.
+
+Note: Pour ne pas bloquer l’émission TLS pendant vos réglages MSSQL, `edge` ne dépend plus de `api`. Les certificats sont donc obtenus même si la base n’est pas encore opérationnelle.
