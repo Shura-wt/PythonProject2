@@ -16,6 +16,22 @@ prepare_creds() {
   if [ -f "$OVH_CRED_SRC" ]; then
     mkdir -p /etc/letsencrypt
     cp "$OVH_CRED_SRC" "$OVH_CRED_DST" || true
+    # Normalize file format: remove CRLF, trim spaces, strip quotes around values
+    # 1) Remove Windows CR characters at EOL
+    sed -i 's/\r$//' "$OVH_CRED_DST" || true
+    # 2) Trim spaces around '=' and strip surrounding quotes in values
+    awk -F'=' '
+      BEGIN{OFS="="}
+      /^[[:space:]]*#/ {print; next}
+      NF>=2 {
+        key=$1; val=$0; sub(/^[^=]*=/, "", val);
+        gsub(/^[ \t]+|[ \t]+$/, "", key);
+        gsub(/^[ \t]+|[ \t]+$/, "", val);
+        print key, val; next
+      }
+      {print}
+    ' "$OVH_CRED_DST" > "$OVH_CRED_DST.tmp" 2>/dev/null || true
+    if [ -s "$OVH_CRED_DST.tmp" ]; then mv -f "$OVH_CRED_DST.tmp" "$OVH_CRED_DST"; else rm -f "$OVH_CRED_DST.tmp"; fi
     chmod 600 "$OVH_CRED_DST" || true
   else
     log "OVH credentials not found at $OVH_CRED_SRC; refusing to proceed."
@@ -28,7 +44,7 @@ validate_creds() {
   REQUIRED_KEYS="dns_ovh_endpoint dns_ovh_application_key dns_ovh_application_secret dns_ovh_consumer_key"
   for k in $REQUIRED_KEYS; do
     LINE=$(grep -E "^$k\s*=\s*" "$OVH_CRED_DST" 2>/dev/null | head -n1)
-    VALUE=$(echo "$LINE" | cut -d= -f2- | tr -d ' \t\r')
+    VALUE=$(echo "$LINE" | cut -d= -f2- | tr -d '\r' | sed -e 's/^\s*//;s/\s*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/")
     if [ -z "$VALUE" ]; then
       log "Invalid or missing OVH credential: $k in $OVH_CRED_DST"
       exit 1
@@ -38,6 +54,9 @@ validate_creds() {
       log "OVH credential $k appears to be a placeholder in $OVH_CRED_DST; please set a real value."
       exit 1
     fi
+    # Masked diagnostic
+    LEN=${#VALUE}
+    [ $LEN -gt 0 ] && log "Detected $k (length: $LEN chars)"
   done
 }
 
