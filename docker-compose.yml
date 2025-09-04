@@ -63,10 +63,10 @@ services:
       # Set to false (or remove) to use Let's Encrypt production
       - ACME_STAGING=false
       # Optional local development: provide OVH creds via .env (defaults prevent compose warnings)
-      - DNS_OVH_ENDPOINT=${ovh-eu}
-      - DNS_OVH_APPLICATION_KEY=${a25448fbe3b4ac2f}
-      - DNS_OVH_APPLICATION_SECRET=${2b0d36c1c0d5288b089eb52a10412ede}
-      - DNS_OVH_CONSUMER_KEY=${637c40677069fe5ed8bfdeaae17651df}
+      - DNS_OVH_ENDPOINT=ovh-eu
+      - DNS_OVH_APPLICATION_KEY=a25448fbe3b4ac2f
+      - DNS_OVH_APPLICATION_SECRET=2b0d36c1c0d5288b089eb52a10412ede
+      - DNS_OVH_CONSUMER_KEY=637c40677069fe5ed8bfdeaae17651df
     ports:
       - "443:443"
     volumes:
