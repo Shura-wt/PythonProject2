@@ -46,6 +46,16 @@ if command -v docker >/dev/null 2>&1; then
 
   echo "[deploy] Pruning dangling/unused images (safe)"
   docker image prune -af || true
+
+  echo "[deploy] Removing any containers with fixed names that may conflict"
+  FIXED_NAMES="mssql-test api-test front-test edge-test"
+  for name in $FIXED_NAMES; do
+    ID=$(docker ps -aq -f name="^/$name$")
+    if [ -n "$ID" ]; then
+      echo "[deploy] Force removing lingering container: $name ($ID)"
+      docker rm -f $ID || true
+    fi
+  done
 fi
 
 # Build and start new stack
