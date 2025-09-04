@@ -52,3 +52,59 @@ jobs:
             echo "[ci] COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME"
             # Run deploy (down -v, prune, build --pull, up -d)
             ./scripts/deploy.sh
+
+            echo "[ci] Post-deploy TLS verification for 0shura.fr domains"
+            DOMAINS=("frontbaes.0shura.fr" "apibaes.0shura.fr")
+
+            check_with_curl() {
+              local DOMAIN="$1"
+              echo "[ci] curl HTTPS probe for https://${DOMAIN}/"
+              # Use dockerized curl with system CAs; non-200 codes are acceptable if TLS is valid
+              # curl exits non-zero on TLS errors (e.g., self-signed or wrong name), which is what we want.
+              local TRY=0 MAX=40
+              while [ $TRY -lt $MAX ]; do
+                TRY=$((TRY+1))
+                set +e
+                OUT=$(docker run --rm --network host curlimages/curl:8.8.0 -sS -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 20 "https://${DOMAIN}/")
+                RC=$?
+                set -e
+                if [ $RC -eq 0 ]; then
+                  echo "[ci] curl OK for ${DOMAIN} (HTTP ${OUT})"
+                  return 0
+                fi
+                if [ $((TRY % 5)) -eq 0 ]; then
+                  echo "[ci] Waiting for ${DOMAIN} to present a trusted cert... (try ${TRY}/${MAX})"
+                fi
+                sleep 30
+              done
+              echo "[ci] ERROR: curl could not establish a trusted HTTPS connection to ${DOMAIN} within the expected time."
+              return 1
+            }
+
+            check_with_openssl() {
+              local DOMAIN="$1"
+              echo "[ci] openssl certificate validation for ${DOMAIN}"
+              set +e
+              docker run --rm --network host alpine:3.19 sh -lc '
+                apk add --no-cache openssl ca-certificates >/dev/null 2>&1 || true
+                echo | openssl s_client -servername '"$DOMAIN"' -connect '"$DOMAIN"':443 -verify_return_error 2>&1 | tee /tmp/ssl.out && \
+                grep -q "Verify return code: 0 (ok)" /tmp/ssl.out && \
+                echo "[ci] openssl verify OK for '"$DOMAIN"'" && \
+                echo "[ci] Subject/Issuer:" && \
+                echo | openssl s_client -servername '"$DOMAIN"' -connect '"$DOMAIN"':443 2>/dev/null | openssl x509 -noout -subject -issuer -dates
+              '
+              RC=$?
+              set -e
+              if [ $RC -ne 0 ]; then
+                echo "[ci] ERROR: openssl verification failed for ${DOMAIN}. The certificate may be self-signed or the chain untrusted."
+                return 1
+              fi
+              return 0
+            }
+
+            for d in "${DOMAINS[@]}"; do
+              check_with_curl "$d"
+              check_with_openssl "$d"
+            done
+
+            echo "[ci] TLS verification completed successfully for all domains."
