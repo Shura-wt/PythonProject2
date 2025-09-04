@@ -73,7 +73,6 @@ services:
       - letsencrypt:/etc/letsencrypt
       - ./secrets/ovh.ini:/run/secrets/ovh.ini:ro
     depends_on:
-      - api
       - front
     restart: unless-stopped
 

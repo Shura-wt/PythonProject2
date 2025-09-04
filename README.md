@@ -64,3 +64,12 @@ Notes importantes:
 - Ne laissez pas de valeurs placeholders (<APP_KEY>, etc.), sinon le conteneur edge refusera de démarrer (pas de certificat autosigné).
 - .env est ignoré par Git (.gitignore) et ne doit jamais être poussé.
 - En CI/CD, le fichier secrets/ovh.ini est régénéré à chaque déploiement à partir des GitHub Secrets; les variables .env locales ne sont pas utilisées côté serveur.
+
+
+---
+
+### Note: Démarrage d'edge indépendant de l'API pour l'émission TLS
+
+- Afin de ne pas bloquer l’émission des certificats Let’s Encrypt en cas de panne de la base de données (ex: manque de RAM pour SQL Server), le service `edge` ne dépend plus du service `api` dans `docker-compose.yml`.
+- `edge` peut ainsi démarrer et servir le front ainsi que gérer l’ACME (DNS-01 via OVH) même si `api`/`mssql` sont momentanément indisponibles.
+- Les proxypass vers l’API répondront en erreur tant que l’API n’est pas démarrée, mais la couche TLS (certificats valides) sera opérationnelle, ce qui est requis par la CI.
