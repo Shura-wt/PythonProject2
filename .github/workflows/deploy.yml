@@ -38,7 +38,6 @@ jobs:
             # Ensure the OVH secrets file exists (generate from GitHub Secrets each deploy)
             mkdir -p secrets
             cat > secrets/ovh.ini <<'EOF'
-            dns_ovh_endpoint = ovh-eu
             dns_ovh_application_key = ${{ secrets.DNS_OVH_APPLICATION_KEY }}
             dns_ovh_application_secret = ${{ secrets.DNS_OVH_APPLICATION_SECRET }}
             dns_ovh_consumer_key = ${{ secrets.DNS_OVH_CONSUMER_KEY }}
