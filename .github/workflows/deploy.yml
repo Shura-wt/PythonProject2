@@ -1,0 +1,54 @@
+name: Deploy via SSH
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for actions metadata only)
+        uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          host_verification: false
+          # Ensure the repository exists on the server at DEPLOY_WORKDIR and has 'origin' pointing to this repo.
+          script: |
+            set -euo pipefail
+            echo "[ci] Connecting to $HOSTNAME"
+            cd "${{ secrets.DEPLOY_WORKDIR }}"
+            echo "[ci] Working dir: $(pwd)"
+            # Safety: ensure this is a git repository
+            if [ ! -d .git ]; then
+              echo "[ci] ERROR: DEPLOY_WORKDIR is not a git repository. Please clone the repo there or set DEPLOY_WORKDIR to the repo root."
+              exit 1
+            fi
+            # Fetch latest code and reset to remote master
+            git fetch --all --prune
+            git reset --hard origin/master
+
+            # Ensure the OVH secrets file exists (generate from GitHub Secrets each deploy)
+            mkdir -p secrets
+            cat > secrets/ovh.ini <<'EOF'
+            dns_ovh_endpoint = ovh-eu
+            dns_ovh_application_key = ${{ secrets.DNS_OVH_APPLICATION_KEY }}
+            dns_ovh_application_secret = ${{ secrets.DNS_OVH_APPLICATION_SECRET }}
+            dns_ovh_consumer_key = ${{ secrets.DNS_OVH_CONSUMER_KEY }}
+            EOF
+            chmod 600 secrets/ovh.ini || true
+
+            # Ensure deploy script is executable
+            chmod +x scripts/deploy.sh || true
+            # Optionally set a project name to scope compose cleanup
+            export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-baes}
+            echo "[ci] COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME"
+            # Run deploy (down -v, prune, build --pull, up -d)
+            ./scripts/deploy.sh

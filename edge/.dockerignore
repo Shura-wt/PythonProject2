@@ -1,0 +1,2 @@
+# Exclude any accidental credentials file from the build context
+ovh.ini

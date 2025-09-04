@@ -59,7 +59,7 @@ services:
       - FRONT_DOMAIN=frontbaes.isymap.com
       - API_DOMAIN=apibaes.isymap.com
       # Set your ACME contact email; defaults to postmaster@<API_DOMAIN> if not set
-      - ACME_EMAIL=dev@isymap.com
+      - ACME_EMAIL=mathisbatailler30@gmail.com
       # Set to false (or remove) to use Let's Encrypt production
       - ACME_STAGING=false
     ports:

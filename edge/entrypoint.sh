@@ -4,7 +4,7 @@ set -e
 # Configurable via environment
 FRONT="${FRONT_DOMAIN:-frontbaes.isymap.com}"
 API="${API_DOMAIN:-apibaes.isymap.com}"
-ACME_EMAIL="${ACME_EMAIL:-dev@isymap.com}"
+ACME_EMAIL="${ACME_EMAIL:-mathisbatailler30@gmail.com}"
 ACME_STAGING="${ACME_STAGING:-false}" # set to true to use Let's Encrypt staging
 OVH_CRED_SRC=/run/secrets/ovh.ini
 OVH_CRED_DST=/etc/letsencrypt/ovh.ini

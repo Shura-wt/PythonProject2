@@ -135,7 +135,7 @@ Vérifiez:
 - Droits du fichier dans le conteneur: l’entrypoint applique chmod 600 automatiquement.
 - Que l’APP_KEY/SECRET/CONSUMER_KEY ont bien les droits sur la zone DNS des domaines FRONT_DOMAIN et API_DOMAIN dans OVH (API "domain/zone").
 - Que les domaines frontbaes.isymap.com / apibaes.isymap.com existent dans votre compte OVH et pointent vers l’IP du serveur.
-- ACME_EMAIL est correctement défini (ex: dev@isymap.com) pour recevoir d’éventuelles notifications.
+- ACME_EMAIL est correctement défini (ex: mathisbatailler30@gmail.com) pour recevoir d’éventuelles notifications.
 
 L’entrypoint vérifie désormais la présence et la validité de ovh.ini et s’arrête immédiatement si des clés manquent, pour éviter des boucles d’échec.
 
@@ -178,3 +178,97 @@ Notes:
 - Remplissez les valeurs réelles pour dns_ovh_application_key, dns_ovh_application_secret et dns_ovh_consumer_key. L’endpoint recommandé pour l’Europe est: dns_ovh_endpoint = ovh-eu
 - Ne commitez jamais secrets/ovh.ini: ce fichier est ignoré par git (.gitignore) et doit rester uniquement sur votre hôte/serveur.
 - Le fichier est monté en lecture seule dans le conteneur (voir docker-compose.yml), et l’entrypoint applique automatiquement les permissions requises (chmod 600) et vérifie que les valeurs ne sont pas vides ni des placeholders.
+
+#### Automatisation via GitHub Actions
+
+Si vous utilisez le déploiement CI/CD fourni (voir section "CI/CD: Déploiement automatique"), le fichier `secrets/ovh.ini` est généré automatiquement sur le serveur à chaque déploiement à partir des Secrets du dépôt GitHub:
+- `DNS_OVH_APPLICATION_KEY`
+- `DNS_OVH_APPLICATION_SECRET`
+- `DNS_OVH_CONSUMER_KEY`
+
+Comportement:
+- Le workflow crée (ou écrase) `secrets/ovh.ini` dans `${{ secrets.DEPLOY_WORKDIR }}` avant d'exécuter `scripts/deploy.sh`.
+- Les valeurs ne sont jamais commitées dans le dépôt.
+- Assurez-vous d’avoir défini ces Secrets dans GitHub > Settings > Secrets and variables > Actions.
+- Si vous n’utilisez pas le workflow CI (exécution manuelle locale), vous devez créer `secrets/ovh.ini` vous-même sur la machine qui exécute Docker.
+
+
+---
+
+## CI/CD: Déploiement automatique via GitHub Actions (SSH)
+
+Ce dépôt inclut un workflow GitHub Actions qui déploie automatiquement sur votre serveur par SSH, nettoie les anciens conteneurs/volumes et relance une version propre via `scripts/deploy.sh`.
+
+Déclencheurs:
+- Push sur la branche `master`
+- Lancement manuel (workflow_dispatch)
+
+Pré-requis côté serveur:
+- Docker installé (Compose v2 via `docker compose`, ou `docker-compose` v1).
+- Le dépôt cloné une première fois dans un dossier fixe (ex: `/opt/baes_docker_shura` sous Linux, ou `C:\\baes_docker_shura` sous Windows).
+- L’utilisateur SSH a le droit d’exécuter Docker (ajouté au groupe `docker` sous Linux, ou utilisez `sudo` si nécessaire).
+
+Secrets GitHub à configurer (Settings > Secrets and variables > Actions):
+- `DEPLOY_HOST`: IP ou DNS du serveur (ex: `90.113.56.213`).
+- `DEPLOY_USER`: utilisateur SSH (ex: `userssh`).
+- `DEPLOY_SSH_KEY`: contenu de la clé privée (ex: contenu du fichier `sshMathis.pem`).
+- `DEPLOY_WORKDIR`: chemin absolu du dépôt déjà cloné sur le serveur (ex: `/opt/baes_docker_shura`).
+- `DEPLOY_PORT` (optionnel): port SSH (défaut: 22).
+
+Ce que fait le workflow (`.github/workflows/deploy.yml`):
+1. Se connecte en SSH au serveur avec la clé privée.
+2. `cd` vers `DEPLOY_WORKDIR` puis récupère la dernière version du code: `git fetch --all --prune && git reset --hard origin/master`. 
+3. Rend exécutable `scripts/deploy.sh`.
+4. Exécute `scripts/deploy.sh` qui effectue:
+   - `docker compose down -v` (ou `docker-compose down -v`) pour arrêter et supprimer conteneurs et volumes du projet.
+   - Nettoyage additionnel des conteneurs/volumes étiquetés du projet, prune réseaux/images.
+   - `compose build --pull` pour reconstruire en tirant les dernières bases.
+   - `compose up -d` pour redémarrer proprement la stack.
+
+Étapes d’initialisation (une seule fois):
+- Cloner le dépôt sur le serveur à l’emplacement choisi (ex):
+  - Linux: `git clone <URL_GITHUB> /opt/baes_docker_shura`
+  - Windows: `git clone <URL_GITHUB> C:\\baes_docker_shura`
+- Vérifier l’origin: `git -C <WORKDIR> remote -v`
+- Tester un déploiement manuel sur le serveur: `bash scripts/deploy.sh` (Linux) ou via WSL; sous Windows sans WSL, exécutez la commande depuis un shell compatible (Git Bash) ou adaptez un script PowerShell équivalent.
+
+Sécurité:
+- Ne commitez jamais de mots de passe ni de clés privées. Utilisez exclusivement les Secrets GitHub.
+- Vous pouvez restreindre l’accès SSH de la clé à l’IP de GitHub Actions si nécessaire.
+
+
+## Droits Docker/Compose pour l'utilisateur `userssh`
+
+Sur un serveur Ubuntu/Debian typique:
+
+1) Installer Docker (si absent) et démarrer le service:
+   - sudo apt-get update
+   - sudo apt-get install -y docker.io
+   - sudo systemctl enable --now docker
+
+2) Ajouter `userssh` au groupe docker pour exécuter Docker sans sudo:
+   - sudo groupadd docker 2>/dev/null || true
+   - sudo usermod -aG docker userssh
+   - newgrp docker    # ou déconnectez-vous/reconnectez-vous pour appliquer le groupe
+
+3) Vérifier Docker et un conteneur de test:
+   - docker --version
+   - docker run --rm hello-world
+
+4) Vérifier Docker Compose:
+   - docker compose version   # Compose v2 (recommandé)
+   - Si non présent, vous pouvez installer docker-compose v1 : `sudo apt-get install -y docker-compose`
+     (le script `scripts/deploy.sh` gère automatiquement `docker compose` v2 ou `docker-compose` v1)
+
+Important:
+- `DEPLOY_WORKDIR` doit pointer vers la racine du dépôt cloné (par ex. `/home/userssh/PythonProject2`).
+  Si vous avez seulement `/home/userssh`, clonez le dépôt dedans et utilisez le chemin complet du dossier du dépôt.
+
+
+### Note importante: ovh.ini et le service edge
+
+- Il n'est ni utile ni recommandé de garder un fichier `ovh.ini` dans le dossier `edge/` ni de le copier dans l'image via le Dockerfile.
+- Le Dockerfile du service edge ne copie plus `ovh.ini`. Les identifiants OVH sont fournis au runtime via le montage `./secrets/ovh.ini` -> `/run/secrets/ovh.ini` et sont sécurisés par l'entrypoint (chmod 600).
+- N'ajoutez jamais de secrets sous `edge/`. Le fichier `edge/ovh.ini` est ignoré par Git et ne doit contenir aucune donnée sensible.
+- Pour un usage local, partez de `secrets/ovh.example.ini` et créez un `secrets/ovh.ini` non commité. En CI/CD, le fichier `secrets/ovh.ini` est généré automatiquement à chaque déploiement depuis les Secrets GitHub.
+- Si des clés OVH ont été commitées par le passé, révoquez/regénérez-les dans votre compte OVH.

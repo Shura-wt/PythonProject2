@@ -8,9 +8,7 @@ RUN apk add --no-cache certbot certbot-dns-ovh bash coreutils
 RUN mkdir -p /etc/nginx/conf.d
 COPY nginx/conf.d/ /etc/nginx/conf.d/
 
-COPY ovh.ini /etc/letsencrypt/ovh.ini
-RUN chmod 600 /etc/letsencrypt/ovh.ini
-
+# OVH credentials are provided at runtime via /run/secrets/ovh.ini and handled by entrypoint
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
