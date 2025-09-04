@@ -2,9 +2,9 @@
 set -e
 
 # Configurable via environment
-FRONT="${FRONT_DOMAIN:-frontbaes.0shura.fr}"
-API="${API_DOMAIN:-apibaes.0shura.fr}"
-ACME_EMAIL="${ACME_EMAIL:-mathisbatailler30@gmail.com}"
+FRONT="${FRONT_DOMAIN:-frontbaes.isymap.com}"
+API="${API_DOMAIN:-apibaes.isymap.com}"
+ACME_EMAIL="${ACME_EMAIL:-dev@isymap.com}"
 ACME_STAGING="${ACME_STAGING:-false}" # set to true to use Let's Encrypt staging
 OVH_CRED_SRC=/run/secrets/ovh.ini
 OVH_CRED_DST=/etc/letsencrypt/ovh.ini
@@ -43,8 +43,8 @@ validate_creds() {
 
 # Update nginx confs with domains from env to avoid mismatch
 patch_nginx_confs() {
-  sed -i "s/frontbaes.0shura.fr/${FRONT}/g" /etc/nginx/conf.d/front.conf || true
-  sed -i "s/apibaes.0shura.fr/${API}/g" /etc/nginx/conf.d/api.conf || true
+  sed -i "s/frontbaes.isymap.com/${FRONT}/g" /etc/nginx/conf.d/front.conf || true
+  sed -i "s/apibaes.isymap.com/${API}/g" /etc/nginx/conf.d/api.conf || true
 }
 
 # Build common certbot flags

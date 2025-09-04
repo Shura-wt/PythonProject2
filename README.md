@@ -84,8 +84,8 @@ Note sur docker-compose v1: si votre système utilise encore `docker-compose` v1
 ## Certificats Let's Encrypt (ACME) via OVH
 
 Le conteneur edge intègre Certbot et le plugin DNS OVH. Il obtient automatiquement des certificats valides Let's Encrypt pour:
-- frontbaes.0shura.fr
-- apibaes.0shura.fr
+- frontbaes.isymap.com
+- apibaes.isymap.com
 
 Pré-requis:
 - Les DNS des domaines ci-dessus doivent pointer vers l'IP publique du serveur (A/AAAA).
@@ -100,7 +100,7 @@ Pré-requis:
   dns_ovh_consumer_key = <CONSUMER_KEY>
 
 Configuration (docker-compose, service edge):
-- FRONT_DOMAIN et API_DOMAIN: domaines cibles (par défaut frontbaes.0shura.fr et apibaes.0shura.fr)
+- FRONT_DOMAIN et API_DOMAIN: domaines cibles (par défaut frontbaes.isymap.com et apibaes.isymap.com)
 - ACME_EMAIL: email de contact ACME (facultatif; défaut: postmaster@<API_DOMAIN>)
 - ACME_STAGING=true: activer l’environnement de test Let’s Encrypt pour éviter les limites de rate (à utiliser pour valider la configuration initiale)
 
@@ -134,12 +134,12 @@ Vérifiez:
   - dns_ovh_consumer_key = <CONSUMER_KEY>
 - Droits du fichier dans le conteneur: l’entrypoint applique chmod 600 automatiquement.
 - Que l’APP_KEY/SECRET/CONSUMER_KEY ont bien les droits sur la zone DNS des domaines FRONT_DOMAIN et API_DOMAIN dans OVH (API "domain/zone").
-- Que les domaines frontbaes.0shura.fr / apibaes.0shura.fr existent dans votre compte OVH et pointent vers l’IP du serveur.
-- ACME_EMAIL est correctement défini (ex: dev@0shura.fr) pour recevoir d’éventuelles notifications.
+- Que les domaines frontbaes.isymap.com / apibaes.isymap.com existent dans votre compte OVH et pointent vers l’IP du serveur.
+- ACME_EMAIL est correctement défini (ex: dev@isymap.com) pour recevoir d’éventuelles notifications.
 
 L’entrypoint vérifie désormais la présence et la validité de ovh.ini et s’arrête immédiatement si des clés manquent, pour éviter des boucles d’échec.
 
-## Vérifier la connexion HTTPS (frontbaes.0shura.fr)
+## Vérifier la connexion HTTPS (frontbaes.isymap.com)
 
 Après déploiement, suivez ces étapes pour confirmer que la connexion fonctionne:
 
@@ -152,22 +152,22 @@ Après déploiement, suivez ces étapes pour confirmer que la connexion fonction
 
 3) Observer les logs de edge (Certbot & Nginx):
    - ./compose.sh logs -f edge
-   Vous devriez voir "Attempting Let's Encrypt issuance for frontbaes.0shura.fr" puis un reload nginx si l'émission réussit.
+   Vous devriez voir "Attempting Let's Encrypt issuance for frontbaes.isymap.com" puis un reload nginx si l'émission réussit.
 
 4) Inspecter la présence des certificats dans le conteneur:
-   - docker exec -it edge-test sh -c "ls -l /etc/letsencrypt/live/frontbaes.0shura.fr /etc/letsencrypt/live/apibaes.0shura.fr"
+   - docker exec -it edge-test sh -c "ls -l /etc/letsencrypt/live/frontbaes.isymap.com /etc/letsencrypt/live/apibaes.isymap.com"
 
 5) Tester depuis le serveur (Azure) la réponse HTTPS et le certificat:
-   - curl -vkI https://frontbaes.0shura.fr/
-   - openssl s_client -connect frontbaes.0shura.fr:443 -servername frontbaes.0shura.fr -showcerts | openssl x509 -noout -subject -issuer -dates
+   - curl -vkI https://frontbaes.isymap.com/
+   - openssl s_client -connect frontbaes.isymap.com:443 -servername frontbaes.isymap.com -showcerts | openssl x509 -noout -subject -issuer -dates
 
 6) Vérifications DNS / Réseau:
-   - Assurez-vous que frontbaes.0shura.fr et apibaes.0shura.fr pointent (A/AAAA) vers l'IP publique du serveur hébergeant edge.
+   - Assurez-vous que frontbaes.isymap.com et apibaes.isymap.com pointent (A/AAAA) vers l'IP publique du serveur hébergeant edge.
    - Ouvrez le port 443 en entrée sur le pare-feu/NSG du serveur.
 
 Notes:
 - Le conteneur edge refuse de démarrer sans certificats Let's Encrypt valides. Il n'y a aucun fallback auto-signé.
-- Les fichiers de configuration Nginx ont été alignés sur les domaines .com: frontbaes.0shura.fr et apibaes.0shura.fr.
+- Les fichiers de configuration Nginx ont été alignés sur les domaines .com: frontbaes.isymap.com et apibaes.isymap.com.
 
 
 ### Secrets OVH (création du fichier)
@@ -178,42 +178,3 @@ Notes:
 - Remplissez les valeurs réelles pour dns_ovh_application_key, dns_ovh_application_secret et dns_ovh_consumer_key. L’endpoint recommandé pour l’Europe est: dns_ovh_endpoint = ovh-eu
 - Ne commitez jamais secrets/ovh.ini: ce fichier est ignoré par git (.gitignore) et doit rester uniquement sur votre hôte/serveur.
 - Le fichier est monté en lecture seule dans le conteneur (voir docker-compose.yml), et l’entrypoint applique automatiquement les permissions requises (chmod 600) et vérifie que les valeurs ne sont pas vides ni des placeholders.
-
-
-
-## CI/CD: Déploiement automatique via GitHub Actions (SSH + Docker Compose)
-
-Ce dépôt inclut un workflow GitHub Actions qui déploie automatiquement la stack Docker sur votre serveur via SSH, en nettoyant proprement l’ancienne version (containers/volumes) avant de relancer la nouvelle.
-
-Résumé du fonctionnement:
-- Le workflow pousse les fichiers du repo vers un dossier cible sur le serveur (par défaut: ~/baes_docker_shura).
-- Il exécute scripts/deploy.sh sur le serveur, qui:
-  - docker compose down -v --remove-orphans
-  - Supprime les containers/volumes résiduels du projet (scopés par label com.docker.compose.project)
-  - Prune réseaux/images inutilisés (sûr)
-  - pull/build puis up -d
-
-Pré-requis côté serveur:
-- Docker + Docker Compose V2 (docker compose) ou docker-compose v1 installés et utilisables.
-- L’utilisateur SSH a les droits Docker (ex: membre du groupe docker, ou utilisez root).
-- Les secrets nécessaires au projet (ex: secrets/ovh.ini) présents au bon emplacement si requis par docker-compose.yml.
-
-Configuration des Secrets GitHub (Settings > Secrets and variables > Actions):
-- SSH_HOST: Adresse/IPv4 de votre serveur (ex: 90.113.56.213)
-- SSH_USER: Utilisateur SSH (ex: userssh ou root)
-- SSH_PRIVATE_KEY: Contenu de votre clé privée (ex: le contenu de sshMathis.pem). Ne jamais commit cette clé.
-- REMOTE_PATH (optionnel): Dossier cible sur le serveur (défaut: ~/baes_docker_shura)
-- COMPOSE_PROJECT_NAME (optionnel): Nom de projet Compose (défaut: baes). Permet de bien borner le cleanup.
-
-Déclenchement:
-- Automatique sur push dans la branche main.
-- Manuel via l’onglet Actions > Deploy Docker stack to server > Run workflow.
-
-Sécurité & portée du nettoyage:
-- Le script de déploiement scope toutes les opérations à COMPOSE_PROJECT_NAME pour éviter d’impacter d’autres services.
-- Aucune clé/secret n’est commitée: ils sont fournis via GitHub Secrets.
-
-Dépannage:
-- Vérifiez les logs du job GitHub Actions.
-- Sur le serveur: `docker ps`, `docker logs <service>` et consultez les fichiers du projet dans ${REMOTE_PATH}.
-- Si `docker compose` n’est pas disponible, installez Docker Compose V2, ou laissez le script basculer sur `docker-compose` v1.

@@ -8596,7 +8596,7 @@ case 2:return A.t(o,r)}})
 return A.v($async$aBA,r)},
 aBz(){var s=0,r=A.w(t.N),q,p=2,o,n,m,l,k,j,i
 var $async$aBz=A.r(function(a,b){if(a===1){o=b
-s=p}while(true)switch(s){case 0:j=A.b_("http://apibaes.0shura.fr:5000/general/version")
+s=p}while(true)switch(s){case 0:j=A.b_("http://apibaes.isymap.com:5000/general/version")
 p=4
 s=7
 return A.l(A.d5(j,null),$async$aBz)
@@ -8634,7 +8634,7 @@ B.b.W($.K6)
 B.b.W($.LN)
 B.b.W($.e8)
 B.b.W($.cg)
-n=A.b_("http://apibaes.0shura.fr:5000/general/user/"+A.i(f)+"/alldata")
+n=A.b_("http://apibaes.isymap.com:5000/general/user/"+A.i(f)+"/alldata")
 p=4
 s=7
 return A.l(A.d5(n,null),$async$a_J)
@@ -29508,7 +29508,7 @@ dp(a){if(typeof dartPrint=="function"){dartPrint(a)
 return}if(typeof console=="object"&&typeof console.log!="undefined"){console.log(a)
 return}if(typeof print=="function"){print(a)
 return}throw"Unable to print message: "+String(a)},
-jK(){return"http://apibaes.0shura.fr:5000"},
+jK(){return"http://apibaes.isymap.com:5000"},
 rT(a){var s=u.R.charCodeAt(a>>>6)+(a&63),r=s&1,q=u.I.charCodeAt(s>>>1)
 return q>>>4&-r|q&15&r-1},
 kC(a,b){var s=(a&1023)<<10|b&1023,r=u.R.charCodeAt(1024+(s>>>9))+(s&511),q=r&1,p=u.I.charCodeAt(r>>>1)
@@ -45298,7 +45298,7 @@ l=B.b.iv($.e8,new A.azh(m),new A.azi())
 l.toString
 l.toString
 l.toString
-k=B.d.bZ(l.b,"http")?l.b:"http://apibaes.0shura.fr:5000"+l.b
+k=B.d.bZ(l.b,"http")?l.b:"http://apibaes.isymap.com:5000"+l.b
 s=7
 return A.l(A.d5(A.b_(k),null),$async$yY)
 case 7:j=e
@@ -45465,7 +45465,7 @@ var $async$yZ=A.r(function(a,b){if(a===1){o=b
 s=p}while(true)switch(s){case 0:if(n.cy==null){s=1
 break}p=4
 m=B.b.iv($.e8,new A.azp(n),new A.azq())
-l=B.d.bZ(m.b,"http")?m.b:"http://apibaes.0shura.fr:5000"+m.b
+l=B.d.bZ(m.b,"http")?m.b:"http://apibaes.isymap.com:5000"+m.b
 s=7
 return A.l(A.d5(A.b_(l),null),$async$yZ)
 case 7:k=b

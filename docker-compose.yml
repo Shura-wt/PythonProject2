@@ -56,10 +56,10 @@ services:
       dockerfile: Dockerfile
     container_name: edge-test
     environment:
-      - FRONT_DOMAIN=frontbaes.0shura.fr
-      - API_DOMAIN=apibaes.0shura.fr
+      - FRONT_DOMAIN=frontbaes.isymap.com
+      - API_DOMAIN=apibaes.isymap.com
       # Set your ACME contact email; defaults to postmaster@<API_DOMAIN> if not set
-      - ACME_EMAIL=dev@0shura.fr
+      - ACME_EMAIL=dev@isymap.com
       # Set to false (or remove) to use Let's Encrypt production
       - ACME_STAGING=false
     ports:
