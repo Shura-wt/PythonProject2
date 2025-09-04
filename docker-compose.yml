@@ -1,7 +1,7 @@
 
 services:
   mssql:
-    image: mcr.microsoft.com/mssql/server:2019-latest
+    image: mcr.microsoft.com/mssql/server:2017-latest
     container_name: mssql-test
     environment:
       - ACCEPT_EULA=Y
@@ -14,7 +14,9 @@ services:
       - ./mssql-entrypoint.sh:/mssql-entrypoint.sh
     entrypoint: ["/bin/bash", "/mssql-entrypoint.sh"]
     healthcheck:
-      test: ["CMD-SHELL", "if [ -x /opt/mssql-tools18/bin/sqlcmd ]; then SQLCMD='/opt/mssql-tools18/bin/sqlcmd -C -No'; elif [ -x /opt/mssql-tools/bin/sqlcmd ]; then SQLCMD='/opt/mssql-tools/bin/sqlcmd'; else exit 1; fi; $SQLCMD -S localhost -U sa -P \"$SA_PASSWORD\" -Q 'SELECT 1' -l 3 && $SQLCMD -S localhost -U Externe -P 'Secur3P@ssw0rd!' -Q 'SELECT 1' -l 3"]
+      test: >
+        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "StrongP@ssw0rd!" -Q "SELECT 1" &&
+        /opt/mssql-tools/bin/sqlcmd -S localhost -U Externe -P "Secur3P@ssw0rd!" -Q "SELECT 1" || exit 1
       interval: 10s
       timeout: 5s
       retries: 10
@@ -60,6 +62,11 @@ services:
       - ACME_EMAIL=mathisbatailler30@gmail.com
       # Set to false (or remove) to use Let's Encrypt production
       - ACME_STAGING=false
+      # Optional local development: provide OVH creds via .env
+      - DNS_OVH_ENDPOINT=${DNS_OVH_ENDPOINT}
+      - DNS_OVH_APPLICATION_KEY=${DNS_OVH_APPLICATION_KEY}
+      - DNS_OVH_APPLICATION_SECRET=${DNS_OVH_APPLICATION_SECRET}
+      - DNS_OVH_CONSUMER_KEY=${DNS_OVH_CONSUMER_KEY}
     ports:
       - "443:443"
     volumes:
