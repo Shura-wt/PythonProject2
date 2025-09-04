@@ -63,7 +63,7 @@ Deux options équivalentes pour faire tourner le service edge en local avec Cert
 Notes importantes:
 - Ne laissez pas de valeurs placeholders (<APP_KEY>, etc.), sinon le conteneur edge refusera de démarrer (pas de certificat autosigné).
 - .env est ignoré par Git (.gitignore) et ne doit jamais être poussé.
-- En CI/CD, le fichier secrets/ovh.ini est régénéré à chaque déploiement à partir des GitHub Secrets; les variables .env locales ne sont pas utilisées côté serveur.
+- En CI/CD, le workflow n’écrit plus secrets/ovh.ini. Vous devez créer et maintenir ce fichier sur le serveur (dans ${DEPLOY_WORKDIR}/secrets/ovh.ini). Les variables .env locales ne sont pas utilisées côté serveur.
 
 
 ---
