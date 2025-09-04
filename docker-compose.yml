@@ -1,7 +1,7 @@
 
 services:
   mssql:
-    image: mcr.microsoft.com/mssql/server:2017-latest
+    image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: mssql-test
     environment:
       - ACCEPT_EULA=Y
@@ -15,8 +15,7 @@ services:
     entrypoint: ["/bin/bash", "/mssql-entrypoint.sh"]
     healthcheck:
       test: >
-        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "StrongP@ssw0rd!" -Q "SELECT 1" &&
-        /opt/mssql-tools/bin/sqlcmd -S localhost -U Externe -P "Secur3P@ssw0rd!" -Q "SELECT 1" || exit 1
+        /bin/sh -c 'SQLCMD=$([ -x /opt/mssql-tools18/bin/sqlcmd ] && echo /opt/mssql-tools18/bin/sqlcmd || echo /opt/mssql-tools/bin/sqlcmd); TLS=$([ "$SQLCMD" = "/opt/mssql-tools18/bin/sqlcmd" ] && echo -C || echo); "$SQLCMD" $TLS -S localhost -U sa -P "StrongP@ssw0rd!" -Q "SELECT 1" && "$SQLCMD" $TLS -S localhost -U Externe -P "Secur3P@ssw0rd!" -Q "SELECT 1"'
       interval: 10s
       timeout: 5s
       retries: 10

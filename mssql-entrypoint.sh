@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+# Determine sqlcmd path and TLS flag (tools18 requires -C)
+SQLCMD="/opt/mssql-tools/bin/sqlcmd"
+TLS_FLAG=""
+if [ -x "/opt/mssql-tools18/bin/sqlcmd" ]; then
+  SQLCMD="/opt/mssql-tools18/bin/sqlcmd"
+  TLS_FLAG="-C"
+fi
+
 # Start SQL Server in the background
 /opt/mssql/bin/sqlservr &
 
@@ -9,7 +17,7 @@ function wait_for_sql_server() {
     echo "Waiting for SQL Server to start..."
     for i in {1..60}; do
         # Check if SQL Server is accepting connections
-        if /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q "SELECT 1" &> /dev/null; then
+        if "$SQLCMD" $TLS_FLAG -S localhost -U sa -P "$SA_PASSWORD" -Q "SELECT 1" &> /dev/null; then
             echo "SQL Server is up and running."
             return 0
         fi
@@ -25,12 +33,12 @@ wait_for_sql_server
 
 # Run the initialization script
 echo "Running initialization script..."
-/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -d master -i /init-db.sql
+"$SQLCMD" $TLS_FLAG -S localhost -U sa -P "$SA_PASSWORD" -d master -i /init-db.sql
 
 # Verify that the Externe user was created successfully
 echo "Verifying Externe user creation..."
 for i in {1..10}; do
-    if /opt/mssql-tools/bin/sqlcmd -S localhost -U Externe -P "Secur3P@ssw0rd!" -Q "SELECT 1" &> /dev/null; then
+    if "$SQLCMD" $TLS_FLAG -S localhost -U Externe -P "Secur3P@ssw0rd!" -Q "SELECT 1" &> /dev/null; then
         echo "Externe user verified successfully!"
         break
     fi
