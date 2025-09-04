@@ -66,6 +66,9 @@ prepare_creds() {
   if val_is_placeholder "$AS" && [ -n "${DNS_OVH_APPLICATION_SECRET:-}" ]; then kv_set dns_ovh_application_secret "$DNS_OVH_APPLICATION_SECRET"; fi
   CK=$(kv_get dns_ovh_consumer_key)
   if val_is_placeholder "$CK" && [ -n "${DNS_OVH_CONSUMER_KEY:-}" ]; then kv_set dns_ovh_consumer_key "$DNS_OVH_CONSUMER_KEY"; fi
+  # Ensure OVH endpoint is configured in credentials file; default ovh-eu. Env DNS_OVH_ENDPOINT overrides file value.
+  EP="${DNS_OVH_ENDPOINT:-ovh-eu}"
+  if [ -n "$EP" ]; then kv_set endpoint "$EP"; fi
 }
 
 # Validate OVH credentials content (keys non-empty, not placeholders)
@@ -97,8 +100,7 @@ patch_nginx_confs() {
 
 # Build common certbot flags
 certbot_flags() {
-  EP="${DNS_OVH_ENDPOINT:-ovh-eu}"
-  FLAGS="--dns-ovh --dns-ovh-credentials ${OVH_CRED_DST} --dns-ovh-endpoint ${EP} --dns-ovh-propagation-seconds 900 --agree-tos --email ${ACME_EMAIL} --non-interactive"
+  FLAGS="--dns-ovh --dns-ovh-credentials ${OVH_CRED_DST} --dns-ovh-propagation-seconds 900 --agree-tos --email ${ACME_EMAIL} --non-interactive"
   if [ "$ACME_STAGING" = "true" ]; then
     FLAGS="$FLAGS --staging"
   fi
